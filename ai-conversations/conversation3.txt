@@ -1,0 +1,269 @@
+================================================================================
+CONVERSATION 3: Creating Weather Visualizations
+================================================================================
+Topic: Developing temperature and precipitation visualization functions
+Date:24/10/2025
+Prompting Techniques Used: Restate the problem, Request modular design, Iterative improvements
+================================================================================
+
+Me:
+I need to create two visualization functions for my weather app:
+1. create_temperature_visualisation() - should show temperature trends over the 
+   forecast period
+2. create_precipitation_visualisation() - should show precipitation/rain data
+
+Both functions should:
+- Accept weather_data dict and output_type parameter
+- Handle missing data gracefully
+- Return a figure object OR display directly based on output_type
+- Include proper labels, titles, and legends
+- Be visually appealing and informative
+
+AI:
+Perfect! You've captured all the key requirements. For chart types,
+I'd suggest:
+
+**Temperature Visualization:**
+- **Line chart** showing max, min, and average temperatures
+- Use different colors/markers for each temperature type
+- Fill area between max and min to show temperature range
+- This clearly shows trends over time
+
+**Precipitation Visualization:**
+- **Bar chart** for precipitation amounts (mm)
+- **Line chart** for chance of rain (percentage)
+- Consider using two subplots to show both metrics
+- This provides both actual and probability information
+
+Would you like me to start with the temperature visualization?
+
+Me:
+Yes.
+
+AI:
+Absolutely! Let's break it into logical sections:
+
+```python
+def create_temperature_visualisation(weather_data, output_type='display'):
+    """
+    Create visualisation of temperature data.
+
+    Args:
+        weather_data (dict): The processed weather data
+        output_type (str): Either 'display' to show in notebook or 'figure' to return the figure
+
+    Returns:
+        matplotlib.figure.Figure: The figure object (always returned)
+    """
+    if weather_data is None or 'forecast' not in weather_data:
+        print("Error: Invalid weather data provided")
+        return None
+    
+    try:
+        # Extract temperature data from forecast
+        dates = []
+        max_temps = []
+        min_temps = []
+        avg_temps = []
+        
+        for day in weather_data['forecast']:
+            dates.append(day['date'])
+            try:
+                max_temps.append(float(day['max_temp']))
+                min_temps.append(float(day['min_temp']))
+                avg_temps.append(float(day['avg_temp']))
+            except (ValueError, TypeError):
+                # Handle cases where temperature data is missing
+                max_temps.append(None)
+                min_temps.append(None)
+                avg_temps.append(None)
+        
+        # Create the figure
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Plot temperature lines
+        ax.plot(dates, max_temps, marker='o', linewidth=2, label='Max Temp', color='#FF6B6B')
+        ax.plot(dates, avg_temps, marker='s', linewidth=2, label='Avg Temp', color='#4ECDC4')
+        ax.plot(dates, min_temps, marker='^', linewidth=2, label='Min Temp', color='#45B7D1')
+        
+        # Fill area between max and min
+        ax.fill_between(dates, max_temps, min_temps, alpha=0.2, color='#95E1D3')
+        
+        # Customize the plot
+        ax.set_xlabel('Date', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Temperature (°C)', fontsize=12, fontweight='bold')
+        ax.set_title(f'Temperature Forecast for {weather_data["location"]}', 
+                     fontsize=14, fontweight='bold', pad=20)
+        ax.legend(loc='best', framealpha=0.9)
+        ax.grid(True, alpha=0.3, linestyle='--')
+        
+        # Rotate x-axis labels for better readability
+        plt.xticks(rotation=45, ha='right')
+        
+        # Add current temperature annotation if available
+        if 'current' in weather_data:
+            current_temp = weather_data['current'].get('temperature', 'N/A')
+            if current_temp != 'N/A':
+                ax.text(0.02, 0.98, f'Current: {current_temp}°C', 
+                       transform=ax.transAxes, fontsize=10,
+                       verticalalignment='top', bbox=dict(boxstyle='round', 
+                       facecolor='wheat', alpha=0.5))
+        
+        plt.tight_layout()
+        
+        # Display if requested, but always return the figure
+        if output_type == 'display':
+            plt.show()
+        
+        return fig
+            
+    except Exception as e:
+        print(f"Error creating temperature visualisation: {str(e)}")
+        return None
+```
+
+The modular structure makes it easy to:
+- Modify data extraction logic (MODULE 2)
+- Change visual styling (MODULE 4)
+- Update labels/formatting (MODULE 5)
+- Add new features without breaking existing code
+
+Me:
+Visualization could be more informative. Can we add the current temperature as an annotation? And maybe use better colors?
+
+AI:
+Great suggestions! Let's iterate on the design. Here are the improvements:
+
+**IMPROVEMENT 1: Add current temperature annotation**
+```python
+# Add after MODULE 5, before tight_layout()
+if 'current' in weather_data:
+    current_temp = weather_data['current'].get('temperature', 'N/A')
+    if current_temp != 'N/A':
+        ax.text(0.02, 0.98, f'Current: {current_temp}°C', 
+               transform=ax.transAxes, fontsize=10,
+               verticalalignment='top', bbox=dict(boxstyle='round', 
+               facecolor='wheat', alpha=0.5))
+```
+
+**IMPROVEMENT 2: Color scheme**
+The colors I chose are from a modern, accessible palette:
+- `#FF6B6B` (coral red) for max temp - warm color for high temperature
+- `#4ECDC4` (turquoise) for avg temp - neutral middle tone
+- `#45B7D1` (light blue) for min temp - cool color for low temperature
+- `#95E1D3` (mint) for the fill - subtle, pleasant
+
+These colors:
+- Have good contrast for readability
+- Are colorblind-friendly
+- Look professional
+- Represent temperature intuitively (warm/cool)
+
+**IMPROVEMENT 3: Better markers**
+- `'o'` (circle) for max - traditional, easy to see
+- `'s'` (square) for avg - distinct shape
+- `'^'` (triangle) for min - points down, suggesting lower values
+
+Would you like any other enhancements?
+
+Me:
+Now work on the precipitation visualization.
+
+AI:
+Excellent! For precipitation, I suggest a two-subplot approach to show both the
+amount (mm) and probability (%) of rain:
+
+```python
+def create_precipitation_visualisation(weather_data, output_type='display'):
+    """
+    Create visualisation of precipitation data.
+    
+    Args:
+        weather_data (dict): The processed weather data
+        output_type (str): Either 'display' to show in notebook or 'figure' to return the figure
+        
+    Returns:
+        If output_type is 'figure', returns the matplotlib figure object
+        Otherwise, displays the visualisation in the notebook
+    """
+    # MODULE 1: Input validation
+    if weather_data is None or 'forecast' not in weather_data:
+        print("Error: Invalid weather data provided")
+        return None
+    
+    try:
+        # MODULE 2: Data extraction
+        dates = []
+        precipitation_amounts = []
+        rain_chances = []
+        
+        for day in weather_data['forecast']:
+            dates.append(day['date'])
+            try:
+                precip_mm = float(day.get('precipitation_mm', 0))
+                precipitation_amounts.append(precip_mm)
+                
+                rain_chance = float(day.get('chance_of_rain', 0))
+                rain_chances.append(rain_chance)
+            except (ValueError, TypeError):
+                precipitation_amounts.append(0)
+                rain_chances.append(0)
+        
+        # MODULE 3: Create figure with two subplots
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
+        
+        # MODULE 4: Top plot - Precipitation amount
+        bars = ax1.bar(dates, precipitation_amounts, color='#3498DB', alpha=0.7, 
+                      edgecolor='#2980B9', linewidth=1.5)
+        ax1.set_ylabel('Precipitation (mm)', fontsize=11, fontweight='bold')
+        ax1.set_title(f'Precipitation Forecast for {weather_data["location"]}', 
+                     fontsize=14, fontweight='bold', pad=15)
+        ax1.grid(True, alpha=0.3, linestyle='--', axis='y')
+        
+        # Add value labels on bars
+        for bar in bars:
+            height = bar.get_height()
+            if height > 0:
+                ax1.text(bar.get_x() + bar.get_width()/2., height,
+                        f'{height:.1f}mm',
+                        ha='center', va='bottom', fontsize=9)
+        
+        # MODULE 5: Bottom plot - Chance of rain
+        ax2.fill_between(dates, rain_chances, alpha=0.3, color='#9B59B6')
+        ax2.plot(dates, rain_chances, marker='o', linewidth=2, color='#8E44AD', markersize=8)
+        ax2.set_xlabel('Date', fontsize=11, fontweight='bold')
+        ax2.set_ylabel('Chance of Rain (%)', fontsize=11, fontweight='bold')
+        ax2.set_ylim(0, 100)
+        ax2.grid(True, alpha=0.3, linestyle='--')
+        
+        # Add percentage labels
+        for i, (date, chance) in enumerate(zip(dates, rain_chances)):
+            if chance > 5:  # Only show if significant
+                ax2.text(i, chance + 3, f'{chance:.0f}%', 
+                        ha='center', fontsize=9, fontweight='bold')
+        
+        # MODULE 6: Formatting
+        plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        plt.tight_layout()
+        
+        # MODULE 7: Return or display
+        if output_type == 'figure':
+            return fig
+        else:
+            plt.show()
+            
+    except Exception as e:
+        print(f"Error creating precipitation visualisation: {str(e)}")
+        return None
+```
+
+**Design Rationale:**
+
+1. **Two subplots**: Shows both "how much" (mm) and "how likely" (%) rain
+2. **Bar chart for amounts**: Easy to compare daily precipitation
+3. **Line chart for probability**: Shows trend and allows filled area below
+4. **Value labels**: Users can see exact values without squinting at axis
+5. **Color scheme**: Blues/purples traditionally associated with water/rain
+6. **Conditional labels**: Only shows labels when values are significant (> 5%)
+
