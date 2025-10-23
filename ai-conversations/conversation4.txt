@@ -1,0 +1,328 @@
+================================================================================
+CONVERSATION 4: Natural Language Processing for Weather Questions
+================================================================================
+Topic: Implementing parse_weather_question() and generate_weather_response()
+Date: 24/10/2025
+Prompting Techniques Used: Break down complexity, Test edge cases, Request alternatives
+================================================================================
+
+Me:
+I need to implement natural language processing for weather questions.I need to extract meaning from unstructured text.
+AI:
+Absolutely! Let's break NLP for weather questions into smaller, manageable components:
+
+**COMPONENT 1: What to Extract**
+From any weather question, we need to identify:
+- Location (Where? - Sydney, London, Perth)
+- Time period (When? - today, tomorrow, this week)
+- Weather attribute (What? - temperature, rain, wind)
+
+**COMPONENT 2: Approach**
+For a student project, we'll use keyword matching (not machine learning):
+- Define keyword lists for each category
+- Search question text for these keywords
+- Extract patterns using simple regex for locations
+
+**COMPONENT 3: Parsing Strategy**
+```
+1. Convert question to lowercase (for consistent matching)
+2. Look for time keywords (today, tomorrow, weekend, etc.)
+3. Look for attribute keywords (temperature, rain, wind, etc.)
+4. Look for location patterns (in/at/for [Location])
+5. Return structured dictionary with findings
+```
+
+This is simpler than it sounds! Want to see the implementation?
+
+Me:
+Start with parse_weather_question(). But first, can you show me what
+the output should look like for different example questions?
+
+AI:
+Great idea to define the output format first! Here are examples:
+
+**Example 1: "What's the temperature in Sydney today?"**
+```python
+{
+    'location': 'Sydney',
+    'time_period': 'today',
+    'attribute': 'temperature',
+    'original_question': "What's the temperature in Sydney today?"
+}
+```
+
+**Example 2: "Will it rain tomorrow?"**
+```python
+{
+    'location': None,  # Not specified - will prompt user
+    'time_period': 'tomorrow',
+    'attribute': 'rain',
+    'original_question': "Will it rain tomorrow?"
+}
+```
+
+**Example 3: "How's the weather in Perth this week?"**
+```python
+{
+    'location': 'Perth',
+    'time_period': 'week',
+    'attribute': 'general',
+    'original_question': "How's the weather in Perth this week?"
+}
+```
+
+Notice:
+- Always return the same structure
+- Use None for missing information
+- Keep original question for context
+- Use consistent keyword values
+
+Me:
+Show me the implementation and pseudocode. And what edge cases should I test?
+
+AI:
+Here's the pseudocode with edge case handling:
+
+FUNCTION parse_weather_question(question):
+IF question is empty or not string:
+RETURN default structure with None values
+Convert question to lowercase
+
+INITIALIZE result structure with defaults
+
+# Parse time period
+time_keywords = {
+    'today': ['today', 'now', 'currently'],
+    'tomorrow': ['tomorrow'],
+    'week': ['week', 'this week']
+}
+
+FOR each time_period, keywords IN time_keywords:
+    IF any keyword IN question:
+        SET result.time_period = time_period
+        BREAK
+
+# Parse weather attributes
+attribute_keywords = {
+    'temperature': ['temperature', 'temp', 'hot', 'cold'],
+    'rain': ['rain', 'raining', 'precipitation'],
+    'wind': ['wind', 'windy']
+}
+
+FOR each attribute, keywords IN attribute_keywords:
+    IF any keyword IN question:
+        SET result.attribute = attribute
+        BREAK
+
+# Extract location using patterns
+location_patterns = [
+    PATTERN "in [Location]",
+    PATTERN "at [Location]", 
+    PATTERN "for [Location]"
+]
+
+FOR each pattern IN location_patterns:
+    IF pattern matches question:
+        SET result.location = matched_location
+        BREAK
+
+RETURN result
+
+#full code
+def parse_weather_question(question):
+    """Parse a natural language weather question."""
+    if not question or not isinstance(question, str):
+        return {
+            'location': None,
+            'time_period': 'today',
+            'attribute': 'general',
+            'original_question': question
+        }
+    
+    question_lower = question.lower()
+    
+    result = {
+        'location': None,  # Changed from "Unknown" to None
+        'time_period': 'today',
+        'attribute': 'general',
+        'original_question': question
+    }
+    
+    # Comprehensive time keyword matching
+    time_keywords = {
+        'today': ['today', 'right now', 'currently', 'now', 'this moment'],
+        'tomorrow': ['tomorrow', 'next day'],
+        'weekend': ['weekend', 'saturday', 'sunday'],
+        'week': ['this week', 'next week', 'coming week', 'week'],
+        'day_after': ['day after tomorrow', 'overmorrow']
+    }
+    
+    for period, keywords in time_keywords.items():
+        for keyword in keywords:
+            if keyword in question_lower:
+                result['time_period'] = period
+                break
+    
+    # Comprehensive attribute keyword matching
+    attribute_keywords = {
+        'temperature': ['temperature', 'temp', 'hot', 'cold', 'warm', 'cool', 
+                       'degrees', 'celsius', 'fahrenheit'],
+        'rain': ['rain', 'raining', 'rainy', 'precipitation', 'drizzle', 
+                'showers', 'umbrella', 'wet'],
+        'wind': ['wind', 'windy', 'breeze', 'gust'],
+        'humidity': ['humidity', 'humid', 'moisture', 'damp'],
+        'conditions': ['condition', 'weather', 'forecast', 'like', 'look like', 'expect'],
+        'sunny': ['sunny', 'sun', 'clear', 'sunshine'],
+        'cloudy': ['cloud', 'cloudy', 'overcast']
+    }
+    
+    for attribute, keywords in attribute_keywords.items():
+        for keyword in keywords:
+            if keyword in question_lower:
+                result['attribute'] = attribute
+                break
+    
+    # Robust location extraction with regex - handles multi-word locations
+    import re
+    
+    # Pattern 1: "in [Location]"
+    in_pattern = re.search(r'\bin\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', question)
+    if in_pattern:
+        result['location'] = in_pattern.group(1)
+    
+    # Pattern 2: "at [Location]"
+    if not result['location']:
+        at_pattern = re.search(r'\bat\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', question)
+        if at_pattern:
+            result['location'] = at_pattern.group(1)
+    
+    # Pattern 3: "for [Location]"
+    if not result['location']:
+        for_pattern = re.search(r'\bfor\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', question)
+        if for_pattern:
+            result['location'] = for_pattern.group(1)
+    
+    return result
+
+**EDGE CASES TO TEST:**
+
+1. **Empty string**: `""` → Returns default values
+2. **No location**: `"Will it rain tomorrow?"` → location = None
+3. **No time**: `"What's the weather in Sydney?"` → time_period = 'today'
+4. **No attribute**: `"How's London tomorrow?"` → attribute = 'general'
+5. **Multiple time keywords**: `"Is it hot today or tomorrow?"` → First match wins
+6. **Case sensitivity**: `"WHAT'S THE WEATHER IN PERTH?"` → Should still work
+7. **Two-word locations**: `"New York"` → Should capture both words
+8. **Misspellings**: Won't work perfectly, but that's okay for this assignment
+
+Me:
+What if someone asks "Is tomorrow hot in Perth?", the location
+pattern might not match because it comes after the location preposition. 
+
+AI:
+Excellent observation! You're right that "hot in Perth" works but "tomorrow in Perth"
+might be parsed differently. However, let's analyze:
+
+The regex `\bin\s+([A-Z][a-z]+)` looks for:
+- Word boundary
+- "in" followed by space(s)
+- Capitalized word(s)
+
+So "tomorrow in Perth" WILL match if "Perth" is capitalized, which users typically do
+for city names.
+
+**Test it:**
+- "Is tomorrow hot in Perth?" → location = 'Perth' ✓
+- "Is tomorrow hot in perth?" → location = None ✗
+
+**Two solutions:**
+
+1. **Accept the limitation** - Tell users to capitalize city names (reasonable)
+2. **Add more flexible matching** - Use a list of known cities
+
+For this assignment, I recommend solution 1 because:
+- It's simpler
+- Most people naturally capitalize city names
+- You can mention this in your UI ("Enter city name: Sydney")
+- The assignment doesn't require perfect NLP
+
+If you wanted solution 2:
+```python
+known_cities = ['perth', 'sydney', 'melbourne', 'brisbane', 'adelaide', 
+                'london', 'paris', 'tokyo', 'newyork']
+
+# Check if any known city appears in question
+for city in known_cities:
+    if city in question_lower:
+        result['location'] = city.title()
+        break
+```
+
+But this adds maintenance overhead (keeping the list updated).
+
+Me:
+I'll go with solution 1 for now.Pseudo code for generate_weather_response() to create natural language answers.
+
+AI:
+Perfect! Here's the response generation function:
+
+FUNCTION generate_weather_response(parsed_question, weather_data):
+IF weather_data is None:
+RETURN "Unable to retrieve weather data"
+location = GET location from weather_data
+time_period = GET time_period from parsed_question  
+attribute = GET attribute from parsed_question
+
+SWITCH time_period:
+    CASE 'today':
+        IF current weather data available:
+            current = GET current weather
+            SWITCH attribute:
+                CASE 'temperature':
+                    RESPONSE = "Current temperature in {location} is {temp}°C"
+                CASE 'rain':
+                    RESPONSE = "Current precipitation: {precip}mm"
+                CASE 'wind':
+                    RESPONSE = "Wind speed: {wind_speed} km/h"
+                DEFAULT:
+                    RESPONSE = comprehensive current conditions
+        ELSE:
+            RESPONSE = "Current data unavailable"
+            
+    CASE 'tomorrow':
+        IF forecast data available:
+            tomorrow = GET tomorrow's forecast
+            SWITCH attribute:
+                CASE 'temperature':
+                    RESPONSE = "Tomorrow: {min_temp}°C to {max_temp}°C"
+                CASE 'rain':
+                    RESPONSE = "Rain chance: {rain_chance}%"
+                DEFAULT:
+                    RESPONSE = comprehensive tomorrow forecast
+                    
+    CASE 'week':
+        IF forecast data available:
+            week_data = GET week forecast
+            avg_high = CALCULATE average high temperature
+            avg_low = CALCULATE average low temperature
+            rainy_days = COUNT days with high rain chance
+            
+            SWITCH attribute:
+                CASE 'temperature':
+                    RESPONSE = "Week averages: {avg_high}°C high, {avg_low}°C low"
+                CASE 'rain':
+                    RESPONSE = "Rain expected on {rainy_days} days"
+                DEFAULT:
+                    RESPONSE = comprehensive week summary
+                    
+    DEFAULT:
+        RESPONSE = fallback weather information
+
+RETURN RESPONSE
+
+This function:
+- Handles all time periods (today, tomorrow, week)
+- Customizes response based on attribute (temperature, rain, etc.)
+- Provides fallback responses when data is missing
+- Generates natural-sounding sentences
+- Includes specific numbers/data in responses
