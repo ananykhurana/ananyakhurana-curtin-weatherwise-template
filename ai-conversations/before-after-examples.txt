@@ -1,0 +1,392 @@
+BEFORE/AFTER CODE IMPROVEMENT EXAMPLES
+
+
+EXAMPLE 1: Weather Data Function - Adding Robust Error Handling
+
+INITIAL AI-GENERATED CODE (BEFORE):
+def get_weather_data(location, forecast_days=5):
+    """Retrieve weather data for a specified location."""
+    weather_result = get_weather(location, forecast_days=forecast_days)
+    
+    structured_data = {
+        'location': location,
+        'current': {
+            'temperature': weather_result['current_condition'][0]['temp_C'],
+            'description': weather_result['current_condition'][0]['weatherDesc'][0]['value']
+        },
+        'forecast': []
+    }
+    
+    for day in weather_result['weather']:
+        forecast_entry = {
+            'date': day['date'],
+            'max_temp': day['maxtempC'],
+            'min_temp': day['mintempC']
+        }
+        structured_data['forecast'].append(forecast_entry)
+    
+    return structured_data
+
+MY FOLLOW-UP PROMPTS:
+1. "What happens if the API returns None for an invalid location?"
+2. "What if some fields are missing from the API response?"
+3. "Can you add comprehensive error handling with try-except and .get() methods?"
+
+IMPROVED CODE (AFTER):
+def get_weather_data(location, forecast_days=5):
+    """
+    Retrieve weather data for a specified location.
+    """
+    try:
+        if not isinstance(forecast_days, int) or forecast_days < 1 or forecast_days > 5:
+            print("Warning: forecast_days must be between 1 and 5. Using default value of 5.")
+            forecast_days = 5
+
+        weather_result = get_weather(location)
+        if weather_result is None:
+            print(f"Error: Could not retrieve weather data for '{location}'")
+            return None
+
+        # Normalize to dict
+        if hasattr(weather_result, "model_dump"):  # Pydantic v2
+            data = weather_result.model_dump()
+        elif hasattr(weather_result, "dict"):      # Pydantic v1
+            data = weather_result.dict()
+        elif isinstance(weather_result, str):      # JSON string
+            try:
+                data = json.loads(weather_result)
+            except Exception:
+                print(f"Error: Unexpected response type (str not JSON)")
+                return None
+        elif isinstance(weather_result, dict):     # Already dict
+            data = weather_result
+        else:
+            print(f"Error: Unexpected response type: {type(weather_result)}")
+            return None
+
+        structured_data = {
+            'location': location,
+            'current': {
+                'temperature': data.get('current_condition', [{}])[0].get('temp_C', 'N/A'),
+                'feels_like': data.get('current_condition', [{}])[0].get('FeelsLikeC', 'N/A'),
+                'description': data.get('current_condition', [{}])[0].get('weatherDesc', [{}])[0].get('value', 'N/A'),
+                'humidity': data.get('current_condition', [{}])[0].get('humidity', 'N/A'),
+                'wind_speed': data.get('current_condition', [{}])[0].get('windspeedKmph', 'N/A'),
+                'precipitation': data.get('current_condition', [{}])[0].get('precipMM', 'N/A')
+            },
+            'forecast': []
+        }
+
+        forecast_data = data.get('weather', [])
+        for day in forecast_data[:forecast_days]:
+            forecast_entry = {
+                'date': day.get('date', 'N/A'),
+                'max_temp': day.get('maxtempC', 'N/A'),
+                'min_temp': day.get('mintempC', 'N/A'),
+                'avg_temp': day.get('avgtempC', 'N/A'),
+                'description': day.get('hourly', [{}])[0].get('weatherDesc', [{}])[0].get('value', 'N/A'),
+                'precipitation_mm': day.get('hourly', [{}])[0].get('precipMM', '0'),
+                'chance_of_rain': day.get('hourly', [{}])[0].get('chanceofrain', '0'),
+                'humidity': day.get('hourly', [{}])[0].get('humidity', 'N/A')
+            }
+            structured_data['forecast'].append(forecast_entry)
+
+        return structured_data
+
+    except Exception as e:
+        print(f"Error retrieving weather data: {str(e)}")
+        return None
+WHY THIS PROMPTING STRATEGY WAS EFFECTIVE:
+1. **Challenged Edge Cases**: Instead of accepting the initial code, I asked "what
+   if?" questions about error scenarios, prompting the AI to add defensive programming.
+
+2. **Specific Requests**: I explicitly asked for try-except blocks and .get() methods,
+   guiding the AI toward the solution pattern I wanted.
+
+3. **Iterative Refinement**: I didn't ask for everything at once - I built up the
+   improvements step by step.
+
+IMPACT:
+- Original code would crash with invalid locations or missing data
+- Improved code gracefully handles all error cases
+- Application stays running even when API fails
+- User receives clear error messages instead of stack traces
+
+
+EXAMPLE 2: Temperature Visualization - Enhancing Visual Design
+
+INITIAL AI-GENERATED CODE (BEFORE):
+def create_temperature_visualisation(weather_data, output_type='display'):
+    """Create visualisation of temperature data."""
+    dates = []
+    temps = []
+    
+    for day in weather_data['forecast']:
+        dates.append(day['date'])
+        temps.append(float(day['max_temp']))
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(dates, temps)
+    plt.xlabel('Date')
+    plt.ylabel('Temperature')
+    plt.title('Temperature Forecast')
+    plt.xticks(rotation=45)
+    plt.show()
+
+MY FOLLOW-UP PROMPTS:
+1. "Can you show max, min, AND average temperatures on the same chart?"
+2. "Add a filled area between max and min to show the temperature range"
+3. "Use distinct colors and markers for each temperature line"
+4. "Add the current temperature as an annotation box"
+5. "Make the chart more professional with better colors and styling"
+
+IMPROVED CODE (AFTER):
+def create_temperature_visualisation(weather_data, output_type='display'):
+    """
+    Create visualisation of temperature data.
+
+    Args:
+        weather_data (dict): The processed weather data
+        output_type (str): Either 'display' to show in notebook or 'figure' to return the figure
+
+    Returns:
+        matplotlib.figure.Figure: The figure object (always returned)
+    """
+    if weather_data is None or 'forecast' not in weather_data:
+        print("Error: Invalid weather data provided")
+        return None
+    
+    try:
+        # Extract temperature data from forecast
+        dates = []
+        max_temps = []
+        min_temps = []
+        avg_temps = []
+        
+        for day in weather_data['forecast']:
+            dates.append(day['date'])
+            try:
+                max_temps.append(float(day['max_temp']))
+                min_temps.append(float(day['min_temp']))
+                avg_temps.append(float(day['avg_temp']))
+            except (ValueError, TypeError):
+                # Handle cases where temperature data is missing
+                max_temps.append(None)
+                min_temps.append(None)
+                avg_temps.append(None)
+        
+        # Create the figure
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Plot temperature lines
+        ax.plot(dates, max_temps, marker='o', linewidth=2, label='Max Temp', color='#FF6B6B')
+        ax.plot(dates, avg_temps, marker='s', linewidth=2, label='Avg Temp', color='#4ECDC4')
+        ax.plot(dates, min_temps, marker='^', linewidth=2, label='Min Temp', color='#45B7D1')
+        
+        # Fill area between max and min
+        ax.fill_between(dates, max_temps, min_temps, alpha=0.2, color='#95E1D3')
+        
+        # Customize the plot
+        ax.set_xlabel('Date', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Temperature (°C)', fontsize=12, fontweight='bold')
+        ax.set_title(f'Temperature Forecast for {weather_data["location"]}', 
+                     fontsize=14, fontweight='bold', pad=20)
+        ax.legend(loc='best', framealpha=0.9)
+        ax.grid(True, alpha=0.3, linestyle='--')
+        
+        # Rotate x-axis labels for better readability
+        plt.xticks(rotation=45, ha='right')
+        
+        # Add current temperature annotation if available
+        if 'current' in weather_data:
+            current_temp = weather_data['current'].get('temperature', 'N/A')
+            if current_temp != 'N/A':
+                ax.text(0.02, 0.98, f'Current: {current_temp}°C', 
+                       transform=ax.transAxes, fontsize=10,
+                       verticalalignment='top', bbox=dict(boxstyle='round', 
+                       facecolor='wheat', alpha=0.5))
+        
+        plt.tight_layout()
+        
+        # Display if requested, but always return the figure
+        if output_type == 'display':
+            plt.show()
+        
+        return fig
+            
+    except Exception as e:
+        print(f"Error creating temperature visualisation: {str(e)}")
+        return None
+WHY THIS PROMPTING STRATEGY WAS EFFECTIVE:
+1. **Requested More Information**: Instead of settling for a basic line chart, I asked
+   to show max, min, and average - making the visualization much more informative.
+
+2. **Iterative Visual Improvements**: I made multiple requests to enhance the visual
+   design (colors, markers, fill area, annotation), building up to a polished result.
+
+3. **Specific Styling Requests**: I didn't just say "make it better" - I requested
+   specific features like filled areas, distinct markers, and annotation boxes.
+
+IMPACT:
+- Original: Basic line chart showing only max temperature
+- Improved: Comprehensive chart showing temperature range and trends
+- Professional color scheme with good contrast
+- Current temperature annotation provides additional context
+- Filled area makes temperature range immediately visible
+
+
+EXAMPLE 3: Natural Language Parsing - Handling Missing Location
+
+INITIAL AI-GENERATED CODE (BEFORE):
+def parse_weather_question(question):
+    """Parse a natural language weather question."""
+    result = {}
+    
+    # Extract location
+    if " in " in question:
+        result['location'] = question.split(" in ")[1].split()[0]
+    else:
+        result['location'] = "Unknown"
+    
+    # Extract time
+    if "tomorrow" in question:
+        result['time_period'] = 'tomorrow'
+    else:
+        result['time_period'] = 'today'
+    
+    # Extract attribute
+    if "rain" in question:
+        result['attribute'] = 'rain'
+    elif "temperature" in question:
+        result['attribute'] = 'temperature'
+    else:
+        result['attribute'] = 'general'
+    
+    return result
+
+MY FOLLOW-UP PROMPTS:
+1. "What if the question doesn't include a location at all? Setting it to 'Unknown'
+    isn't helpful. Can we return None so the calling code can prompt the user?"
+
+2. "The location extraction with split() is fragile. What if the location has two
+    words like 'New York'? Can we use regex to handle multi-word locations?"
+
+3. "Can you handle more time keywords like 'weekend', 'this week', 'day after tomorrow'?"
+
+4. "The attribute detection is too simple. Can we use keyword lists to catch
+    variations like 'rainy', 'raining', 'precipitation', 'umbrella' for rain?"
+
+IMPROVED CODE (AFTER):
+def parse_weather_question(question):
+    """Parse a natural language weather question."""
+    if not question or not isinstance(question, str):
+        return {
+            'location': None,
+            'time_period': 'today',
+            'attribute': 'general',
+            'original_question': question
+        }
+    
+    question_lower = question.lower()
+    
+    result = {
+        'location': None,  # Changed from "Unknown" to None
+        'time_period': 'today',
+        'attribute': 'general',
+        'original_question': question
+    }
+    
+    # Comprehensive time keyword matching
+    time_keywords = {
+        'today': ['today', 'right now', 'currently', 'now', 'this moment'],
+        'tomorrow': ['tomorrow', 'next day'],
+        'weekend': ['weekend', 'saturday', 'sunday'],
+        'week': ['this week', 'next week', 'coming week', 'week'],
+        'day_after': ['day after tomorrow', 'overmorrow']
+    }
+    
+    for period, keywords in time_keywords.items():
+        for keyword in keywords:
+            if keyword in question_lower:
+                result['time_period'] = period
+                break
+    
+    # Comprehensive attribute keyword matching
+    attribute_keywords = {
+        'temperature': ['temperature', 'temp', 'hot', 'cold', 'warm', 'cool', 
+                       'degrees', 'celsius', 'fahrenheit'],
+        'rain': ['rain', 'raining', 'rainy', 'precipitation', 'drizzle', 
+                'showers', 'umbrella', 'wet'],
+        'wind': ['wind', 'windy', 'breeze', 'gust'],
+        'humidity': ['humidity', 'humid', 'moisture', 'damp'],
+        'conditions': ['condition', 'weather', 'forecast', 'like', 'look like', 'expect'],
+        'sunny': ['sunny', 'sun', 'clear', 'sunshine'],
+        'cloudy': ['cloud', 'cloudy', 'overcast']
+    }
+    
+    for attribute, keywords in attribute_keywords.items():
+        for keyword in keywords:
+            if keyword in question_lower:
+                result['attribute'] = attribute
+                break
+    
+    # Robust location extraction with regex - handles multi-word locations
+    import re
+    
+    # Pattern 1: "in [Location]"
+    in_pattern = re.search(r'\bin\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', question)
+    if in_pattern:
+        result['location'] = in_pattern.group(1)
+    
+    # Pattern 2: "at [Location]"
+    if not result['location']:
+        at_pattern = re.search(r'\bat\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', question)
+        if at_pattern:
+            result['location'] = at_pattern.group(1)
+    
+    # Pattern 3: "for [Location]"
+    if not result['location']:
+        for_pattern = re.search(r'\bfor\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', question)
+        if for_pattern:
+            result['location'] = for_pattern.group(1)
+    
+    return result
+
+WHY THIS PROMPTING STRATEGY WAS EFFECTIVE:
+1. **Identified Specific Problems**: Instead of vague feedback like "this could be
+   better", I pointed out specific issues (multi-word locations, missing location
+   handling, limited keywords).
+
+2. **Provided Use Cases**: I gave examples of what should work (New York, various
+   rain-related words), helping the AI understand the requirements.
+
+3. **Built Understanding Iteratively**: Each prompt addressed one issue, allowing
+   me to verify the solution before moving to the next improvement.
+
+4. **Thought About Integration**: I considered how this function would be called
+   (returning None allows the calling code to prompt for location), showing systems
+   thinking.
+
+IMPACT:
+- Original: Fragile parsing that breaks easily
+- Improved: Robust parsing that handles many variations
+- Multi-word locations work correctly (New York, San Francisco)
+- Missing location returns None (can be handled by UI)
+- Comprehensive keyword lists catch many question variations
+- Users can phrase questions naturally in multiple ways
+
+
+SUMMARY OF INTENTIONAL PROMPTING TECHNIQUES DEMONSTRATED
+
+1. **Challenge Edge Cases** - Asked "what if?" questions to uncover failure modes
+2. **Request Specific Features** - Didn't settle for basic solutions; asked for
+   specific improvements (filled areas, annotation boxes, keyword lists)
+3. **Iterative Refinement** - Made multiple passes, improving code step by step
+4. **Provide Examples** - Gave concrete examples of what should work (multi-word
+   cities, question variations)
+5. **Question Design Decisions** - Asked why certain approaches were chosen, leading
+   to better understanding and sometimes better solutions
+6. **Think About Integration** - Considered how functions work together (returning
+   None for missing location so UI can prompt)
+
+
